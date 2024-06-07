@@ -1,0 +1,16 @@
+apiVersion: 1
+
+providers:
+- name: 'Docker Swarm Monitoring'
+  orgId: 1
+  folder: ''
+  folderUid: ''
+  type: file
+  editable: true
+  disableDeletion: false
+  updateIntervalSeconds: 10
+  allowUiUpdates: false
+  options:
+    path: /usr/share/grafana/dashboards
+    foldersFromFilesStructure: true
+    

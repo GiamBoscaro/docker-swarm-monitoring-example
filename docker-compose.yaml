@@ -111,14 +111,16 @@ services:
     hostname: "prometheus-{{.Task.ID}}"
     networks:
       - infra
+    ports:
+      - 9090:9090
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
       - '--storage.tsdb.retention=${PROMETHEUS_RETENTION:-24h}'
     volumes:
       - prometheus-data:/prometheus
-      # - ./promoteus/rules/swarm_node.rules.yml:/etc/prometheus/swarm_node.rules.yml:ro
-      # - ./promoteus/rules/swarm_task.rules.yml:/etc/prometheus/swarm_task.rules.yml:ro
+      - ./prometheus/rules/swarm_node.rules.yml:/etc/prometheus/swarm_node.rules.yml:ro
+      - ./prometheus/rules/swarm_task.rules.yml:/etc/prometheus/swarm_task.rules.yml:ro
     labels:
       - "com.docker.compose.project=docker-swarm-monitor"
     deploy:
@@ -137,3 +139,42 @@ services:
           memory: 2G
         reservations:
           memory: 128M
+    
+  grafana:
+    image: giammarcoboscaro/grafana
+    hostname: "grafana-{{.Task.ID}}"
+    networks:
+      - infra
+    env_file:
+      - .env
+    ports:
+      - 3000:3000
+    environment:
+      - GF_USERS_ALLOW_SIGN_UP=false
+      #- GF_SERVER_ROOT_URL=${GF_SERVER_ROOT_URL:-localhost}
+      #- GF_SMTP_ENABLED=${GF_SMTP_ENABLED:-false}
+      #- GF_SMTP_FROM_ADDRESS=${GF_SMTP_FROM_ADDRESS:-grafana@test.com}
+      #- GF_SMTP_FROM_NAME=${GF_SMTP_FROM_NAME:-Grafana}
+      #- GF_SMTP_HOST=${GF_SMTP_HOST:-smtp:25}
+      #- GF_SMTP_USER=${GF_SMTP_USER}
+      #- GF_SMTP_PASSWORD=${GF_SMTP_PASSWORD}
+    volumes:
+      - grafana-data:/var/lib/grafana
+    labels:
+      - "com.docker.compose.project=docker-swarm-monitor"
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 5
+        window: 60s
+      resources:
+        limits:
+          memory: 128M
+        reservations:
+          memory: 64M
