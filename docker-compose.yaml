@@ -4,6 +4,8 @@ networks:
   infra:
     driver: overlay
     attachable: true
+  public:
+    external: true
 
 volumes:
     prometheus-data:
@@ -150,6 +152,7 @@ services:
     ports:
       - 3000:3000
     environment:
+      - GF_SERVER_DOMAIN=gboscaro-udemy-ticketing.duckdns.org
       - GF_USERS_ALLOW_SIGN_UP=false
       #- GF_SERVER_ROOT_URL=${GF_SERVER_ROOT_URL:-localhost}
       #- GF_SMTP_ENABLED=${GF_SMTP_ENABLED:-false}
@@ -163,6 +166,47 @@ services:
     labels:
       - "com.docker.compose.project=docker-swarm-monitor"
     deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 5
+        window: 60s
+      resources:
+        limits:
+          memory: 128M
+        reservations:
+          memory: 64M
+
+  proxy:
+    image: caddy:2.8.4-alpine
+    hostname: "proxy-{{.Task.ID}}"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    networks:
+      - infra
+      - public
+    env_file:
+      - .env
+    labels:
+      - "com.docker.compose.project=docker-swarm-monitor"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:2019/metrics"]
+      interval: 5s
+      timeout: 10s
+      retries: 10
+      start_period: 5s
+    deploy:
+      labels:
+        - "traefik.enable=true"
+        - "traefik.docker.network=public"
+        - "traefik.http.routers.monitor.entrypoints=web"
+        - "traefik.http.routers.monitor.rule=Host(`infra.gboscaro-udemy-ticketing.duckdns.org`) && PathPrefix(`/`)"
+        - "traefik.http.services.monitor.loadbalancer.server.port=80"
       mode: replicated
       replicas: 1
       placement:
