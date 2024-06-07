@@ -1,0 +1,9 @@
+{
+	auto_https off
+}
+
+:9323 {
+
+    reverse_proxy / {$DOCKER_GWBRIDGE_IP}:9323 {
+    }
+}

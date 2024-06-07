@@ -1,0 +1,115 @@
+version: "3.8"
+
+networks:
+  infra:
+    driver: overlay
+    attachable: true
+
+volumes:
+    prometheus-data:
+      name: prometheus-data
+      driver: local
+    grafana-data: 
+      name: grafana-data
+      driver: local
+    alertmanager-data: 
+      name: alertmanager-data
+      driver: local
+
+# configs:
+#   caddy_config:
+#     file: ./caddy/Caddyfile
+#   node_rules:
+#     file: ./prometheus/rules/swarm_node.rules.yml
+#   task_rules:
+#     file: ./prometheus/rules/swarm_task.rules.yml
+
+services:
+
+  dockerd-exporter:
+    image: giammarcoboscaro/dockerd-exporter
+    hostname: "dockerd-exporter-{{.Task.ID}}"
+    environment:
+      - DOCKER_GWBRIDGE_IP=172.23.0.1 # ip -o addr show docker_gwbridge
+    networks:
+      - infra
+    labels:
+      - "com.docker.compose.project=docker-swarm-monitor"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:2019/metrics"]
+      interval: 5s
+      timeout: 10s
+      retries: 10
+      start_period: 5s
+    deploy:
+      mode: global
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 5
+        window: 60s
+      resources:
+        limits:
+          memory: 128M
+        reservations:
+          memory: 64M
+
+  node-exporter:
+    image: giammarcoboscaro/node-exporter
+    hostname: "node-exporter-{{.Task.ID}}"
+    environment:
+      - NODE_ID={{.Node.ID}}
+    networks:
+      - infra
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+      - /etc/hostname:/etc/nodename
+    command:
+      - '--path.sysfs=/host/sys'
+      - '--path.procfs=/host/proc'
+      - '--collector.textfile.directory=/etc/node-exporter/'
+      - '--collector.filesystem.ignored-mount-points=^/(sys|proc|dev|host|etc)($$|/)'
+      - '--no-collector.ipvs'
+    labels:
+      - "com.docker.compose.project=docker-swarm-monitor"
+    deploy:
+      mode: global
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 5
+        window: 60s
+      resources:
+        limits:
+          memory: 128M
+        reservations:
+          memory: 64M
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    hostname: "cadvisor-{{.Task.ID}}"
+    networks:
+      - infra
+    command: -logtostderr -docker_only
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /:/rootfs:ro
+      - /var/run:/var/run
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    labels:
+      - "com.docker.compose.project=docker-swarm-monitor"
+    deploy:
+      mode: global
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 5
+        window: 60s
+      resources:
+        limits:
+          memory: 128M
+        reservations:
+          memory: 64M

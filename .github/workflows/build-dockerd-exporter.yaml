@@ -1,0 +1,22 @@
+name: build-dockerd-exporter
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'dockerd-exporter/**'
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+      - run: docker build -t giammarcoboscaro/dockerd-exporter .
+        working-directory: ./dockerd-exporter
+      - run: docker push giammarcoboscaro/dockerd-exporter
