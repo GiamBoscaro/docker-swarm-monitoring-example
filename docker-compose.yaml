@@ -16,14 +16,6 @@ volumes:
       name: alertmanager-data
       driver: local
 
-# configs:
-#   caddy_config:
-#     file: ./caddy/Caddyfile
-#   node_rules:
-#     file: ./prometheus/rules/swarm_node.rules.yml
-#   task_rules:
-#     file: ./prometheus/rules/swarm_task.rules.yml
-
 services:
 
   dockerd-exporter:
@@ -113,3 +105,35 @@ services:
           memory: 128M
         reservations:
           memory: 64M
+
+  prometheus:
+    image: giammarcoboscaro/prometheus
+    hostname: "prometheus-{{.Task.ID}}"
+    networks:
+      - infra
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention=${PROMETHEUS_RETENTION:-24h}'
+    volumes:
+      - prometheus-data:/prometheus
+      # - ./promoteus/rules/swarm_node.rules.yml:/etc/prometheus/swarm_node.rules.yml:ro
+      # - ./promoteus/rules/swarm_task.rules.yml:/etc/prometheus/swarm_task.rules.yml:ro
+    labels:
+      - "com.docker.compose.project=docker-swarm-monitor"
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 5
+        window: 60s
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 128M
