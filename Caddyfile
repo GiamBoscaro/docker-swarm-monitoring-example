@@ -12,27 +12,25 @@
 		}
 	}
 
-	handle /prometheus* {
-        # basic_auth /prometheus* {
-        #     {$ADMIN_USER} {$ADMIN_PASSWORD}
-        # }
+	handle_path /prometheus* {
+        basic_auth /* {
+            {$BASIC_AUTH_USER} {$BASIC_AUTH_HASHED_PASSWORD}
+        }
 		reverse_proxy prometheus:9090
 	}
 
-	handle /alert* {
+	handle_path /alerts* {
+        basic_auth /* {
+            {$BASIC_AUTH_USER} {$BASIC_AUTH_HASHED_PASSWORD}
+        }
 		reverse_proxy alertmanager:9093
 	}
 
-	handle /unsee* {
+	handle_path /unsee* {
+        basic_auth /* {
+            {$BASIC_AUTH_USER} {$BASIC_AUTH_HASHED_PASSWORD}
+        }
 		reverse_proxy unsee:8080
-	}
-
-	handle /grafana* {
-		reverse_proxy grafana:3000
-	}
-
-	handle {
-		reverse_proxy grafana:3000
 	}
 
 	handle {
